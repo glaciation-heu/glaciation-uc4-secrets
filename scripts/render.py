@@ -6,6 +6,9 @@ import base64
 from string import Template
 
 
+START, END = "<BASE64>", "</BASE64>"
+
+
 def render(text: str) -> str:
     template = Template(text)
     template_rendered = template.substitute(os.environ)
@@ -15,17 +18,27 @@ def render(text: str) -> str:
 
 def _replace_base64(input: str) -> str:
     """Replaces tags <BASE64>...</BASE64> with base64 of its internals."""
-    start_tag = "<BASE64>"
-    end_tag = "</BASE64>"
-    pattern = re.compile(f'{re.escape(start_tag)}(.*?){re.escape(end_tag)}', re.DOTALL)
-    return pattern.sub(_replace_base64_match, input)
-
-
-def _replace_base64_match(match: re.Match) -> str:
-    content = match.group(1)
-    content = "\r\n".join(l.strip() for l in content.splitlines() if l.strip() != "")
-    encoded = base64.b64encode(content.encode()).decode()
-    return f'{encoded}'
+    index = 0
+    start_indexes = []
+    result = []
+    while index < len(input):
+        if input.startswith(START, index):
+            start_indexes.append(index)
+        elif input.startswith(END, index):
+            if len(start_indexes) == 1:
+                data = input[start_indexes[0] + len(START) : index]
+                data = ''.join(l.strip() for l in data.splitlines() if l != '')
+                data = _replace_base64(data)
+                data = base64.b64encode(data.encode()).decode()
+                result = [
+                    input[:start_indexes[0]],  # Before START
+                    data,  # Between START and END
+                    _replace_base64(input[index + len(END) :]),  # After END
+                ]
+                break
+            start_indexes.pop()
+        index += 1
+    return ''.join(result) or input
 
 
 def _main():
