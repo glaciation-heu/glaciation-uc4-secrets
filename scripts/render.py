@@ -6,7 +6,14 @@ import base64
 from string import Template
 
 
-def replace_base64(input: str) -> str:
+def render(text: str) -> str:
+    template = Template(text)
+    template_rendered = template.substitute(os.environ)
+    result = _replace_base64(template_rendered)
+    return result
+
+
+def _replace_base64(input: str) -> str:
     """Replaces tags <BASE64>...</BASE64> with base64 of its internals."""
     start_tag = "<BASE64>"
     end_tag = "</BASE64>"
@@ -14,23 +21,22 @@ def replace_base64(input: str) -> str:
     return pattern.sub(_replace_base64_match, input)
 
 
-def _replace_base64_match(match):
+def _replace_base64_match(match: re.Match) -> str:
     content = match.group(1)
     content = "\r\n".join(l.strip() for l in content.splitlines() if l.strip() != "")
     encoded = base64.b64encode(content.encode()).decode()
     return f'{encoded}'
 
 
-def main():
+def _main():
     if len(sys.argv) != 2:
         print("Usage: render.py <template_file>", file=sys.stderr)
         sys.exit(1)
     with open(sys.argv[1]) as template_file:
         template_text = str(template_file.read())
-        template = Template(template_text)
-        template_rendered = template.substitute(os.environ)
-        result = replace_base64(template_rendered)
-        print(result)
+    result = render(template_text)
+    print(result)
+
 
 if __name__ == "__main__":
-    main()
+    _main()
